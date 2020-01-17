@@ -1,4 +1,5 @@
-// oma yritys
+// tyylitetään
+
 const http = require("http");
 const fs = require("fs");
 
@@ -14,25 +15,34 @@ const server = http.createServer( (req, res)=>{
 
     if(url === "/"){
         //tässä eri hipsut kun halutaan kirjoittaa monelle riville
+        // utf-8 -rivin lisäksi alempana myös yksi rivi muutos, joka piti tehdä ääkkösiä varten
         res.write(`
         <html>
-        <head><title> MemoApp </title></head>
-        
+        <head><title> MemoApp </title>
+        <meta http-equiv="Content-Type", content="text/html;charset=UTF-8">
+        <link rel="stylesheet" type="text/css" href="style.css">
+        </head>
         <body>
         `);
 
         notes.forEach((value, index)=>{
-            res.write(`<div> note: ${value}, index: ${index} </div>`);
+            res.write(`<div> ${value}
+                <form action="delete-note" method="POST">
+                <input type="hidden" name="index" value="${index}">
+                <button type="submit" class="delete_button"> Delete </button>
+                </form>
+            </div>`);
         });
 
-        res.write(` <form action="add-note" method="POST">
-                <input type="text" name="note">
-                <button type="submit"> Add note </button>
+        res.write(` 
+            <form action="add-note" method="POST">
+                <input type="text" name="note" autofocus>
+                <button type="submit" class="add_button"> Add note </button>
             </form>
 
             <form action="delete-note" method="POST">
                 <input type="number" name="index">
-                <button type="submit"> Delete note </button>
+                <button type="submit" class="delete_button"> Delete note </button>
             </form>
 
         </body>
@@ -47,22 +57,23 @@ const server = http.createServer( (req, res)=>{
     else if(url === '/delete-note'){
         console.log("/delete-note");
 
-        const poistettava=[];// tähän otetaan talteen tieto kentästä
+        const chunks = []; // tähän otetaan talteen datapalat
         //lisätään kuuntelija joka kuuntelee aina kun dataa tulee
-
-        req.on("data", (poisto)=>{
-            poistettava.push(poisto);
-        });
+        req.on("data", (chunk)=>{
+            chunks.push(chunk);
+        });//kuunnellaan niin kauan kun tavaraa tulee
 
         req.on("end", ()=>{
-            //const body = Buffer.concat(poistettava).toString();
-            notes.splice(poistettava,1); 
-
+            const body = Buffer.concat(chunks).toString();
+            const index = body.split("=")[1]; 
+            notes.splice(index,1); 
 
             res.statusCode = 303; //redirect - uudelleenohjaus
             res.setHeader("Location", "/"); //uudelleenohjataan juureen sen jälkeen kun onkirjoittanut boksiin jotain ja lähettänyt sen
             res.end();
+            
         });
+        return;
     }
 
     else if(url === '/add-note'){
@@ -75,7 +86,8 @@ const server = http.createServer( (req, res)=>{
 
         req.on("end", ()=>{
             const body = Buffer.concat(chunks).toString();
-            const note = body.split("=")[1]; 
+            const decoded_body = decodeURIComponent(body); //tämä utf-8 lisäksi, että ää ja ööö toimii
+            const note = decoded_body.split("=")[1]; 
             notes.push(note);
 
             res.statusCode = 303; //redirect - uudelleenohjaus
@@ -87,6 +99,14 @@ const server = http.createServer( (req, res)=>{
 
     else if(url === "/favicon.ico"){
         fs.readFile("./favicon.ico", (err, data)=>{
+            res.write(data);
+            res.end();
+        });
+        return;
+    }
+
+    else if(url === "/style.css"){
+        fs.readFile("./style.css", (err, data)=>{
             res.write(data);
             res.end();
         });
