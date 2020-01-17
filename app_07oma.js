@@ -1,0 +1,120 @@
+// oma yritys
+const http = require("http");
+const fs = require("fs");
+
+const notes = []; // lisätään tähän myöhemmin kaikki mitä netissä on boksiin kirjoitettu
+
+
+//luodaan serveriobjekti
+const server = http.createServer( (req, res)=>{
+    const url = req.url;
+    const method = req.method;
+    console.log(`HTTP request received: url=${url}, method=${method}`);
+//huom eri hipsut että voidaan käyttää dollarimerkkejä ja kirjoittaa noin
+
+    if(url === "/"){
+        //tässä eri hipsut kun halutaan kirjoittaa monelle riville
+        res.write(`
+        <html>
+        <head><title> MemoApp </title></head>
+        
+        <body>
+        `);
+
+        notes.forEach((value, index)=>{
+            res.write(`<div> note: ${value}, index: ${index} </div>`);
+        });
+
+        res.write(` <form action="add-note" method="POST">
+                <input type="text" name="note">
+                <button type="submit"> Add note </button>
+            </form>
+
+            <form action="delete-note" method="POST">
+                <input type="number" name="index">
+                <button type="submit"> Delete note </button>
+            </form>
+
+        </body>
+        
+        </html>
+        `);
+        res.statusCode=200; //tarkoittaa että status on "ok"
+        res.end();
+        return;
+    }
+
+    else if(url === '/delete-note'){
+        console.log("/delete-note");
+
+        const poistettava=[];// tähän otetaan talteen tieto kentästä
+        //lisätään kuuntelija joka kuuntelee aina kun dataa tulee
+
+        req.on("data", (poisto)=>{
+            poistettava.push(poisto);
+        });
+
+        req.on("end", ()=>{
+            //const body = Buffer.concat(poistettava).toString();
+            notes.splice(poistettava,1); 
+
+
+            res.statusCode = 303; //redirect - uudelleenohjaus
+            res.setHeader("Location", "/"); //uudelleenohjataan juureen sen jälkeen kun onkirjoittanut boksiin jotain ja lähettänyt sen
+            res.end();
+        });
+    }
+
+    else if(url === '/add-note'){
+        console.log("/add-note");
+        const chunks = []; // tähän otetaan talteen datapalat
+        //lisätään kuuntelija joka kuuntelee aina kun dataa tulee
+        req.on("data", (chunk)=>{
+            chunks.push(chunk);
+        });
+
+        req.on("end", ()=>{
+            const body = Buffer.concat(chunks).toString();
+            const note = body.split("=")[1]; 
+            notes.push(note);
+
+            res.statusCode = 303; //redirect - uudelleenohjaus
+            res.setHeader("Location", "/"); //uudelleenohjataan juureen sen jälkeen kun onkirjoittanut boksiin jotain ja lähettänyt sen
+            res.end();
+        });
+        return;
+    }
+
+    else if(url === "/favicon.ico"){
+        fs.readFile("./favicon.ico", (err, data)=>{
+            res.write(data);
+            res.end();
+        });
+        return;
+    }
+
+    //jos kirjoitetaan nettiin sellainen osoite, jota ei löydy
+    console.log(`${url} not found`);
+    res.write(`
+    
+    <html>
+        <head><title> MemoApp - 404 </title></head>
+        
+        <body>
+            <h1>404 - page not found </h1>
+        </body>
+        
+        </html>
+
+    `);
+
+    res.statusCode=404;//not found
+    res.end();
+
+});
+
+//laitetaan käyntii ja kuuntelemaan porttia 8080
+server.listen(8080);
+
+// voidaan käydä aina kokeilemassa netissä, 
+//osoitteeksi kirjoitetaan localhost:8080
